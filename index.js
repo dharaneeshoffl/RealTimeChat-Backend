@@ -5,9 +5,7 @@ import cors from "cors";
 
 const app = express();
 
-app.use(cors({
-  origin: "*",
-}));
+app.use(cors({ origin: "*" }));
 
 app.get("/", (req, res) => {
   res.send("Socket server running");
@@ -28,9 +26,15 @@ io.on("connection", (socket) => {
   console.log("CONNECTED:", socket.id);
 
   socket.on("join", (username) => {
+    
+    if (!username || users.some(u => u.id === socket.id)) return;
+
     console.log("JOIN:", username);
 
-    users.push({ id: socket.id, username });
+    users.push({
+      id: socket.id,
+      username: username.trim(),
+    });
 
     io.emit("users", users.map(u => u.username));
 
@@ -38,23 +42,27 @@ io.on("connection", (socket) => {
       username: "System",
       message: `${username} joined the chat.`,
     });
+  });
 
-    socket.on("sendMessage", (data) => {
-      io.emit("message", data);
-    });
+  socket.on("sendMessage", (data) => {
+    io.emit("message", data);
+  });
 
-    socket.on("disconnect", () => {
-      users = users.filter(u => u.id !== socket.id);
+  socket.on("disconnect", () => {
+    const user = users.find(u => u.id === socket.id);
 
-      io.emit("users", users.map(u => u.username));
+    users = users.filter(u => u.id !== socket.id);
 
+    io.emit("users", users.map(u => u.username));
+
+    if (user) {
       io.emit("message", {
         username: "System",
-        message: `${username} left the chat.`,
+        message: `${user.username} left the chat.`,
       });
+    }
 
-      console.log("DISCONNECTED:", socket.id);
-    });
+    console.log("DISCONNECTED:", socket.id);
   });
 });
 
