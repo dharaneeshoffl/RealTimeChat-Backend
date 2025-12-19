@@ -1,64 +1,64 @@
-import express from 'express'
-
-import http from 'http'
-
-import { Server } from 'socket.io'
-import cors from 'cors'
- 
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import cors from "cors";
 
 const app = express();
 
-const server = http.createServer(app)
+app.use(cors({
+  origin: "*",
+}));
+
+app.get("/", (req, res) => {
+  res.send("Socket server running");
+});
+
+const server = http.createServer(app);
 
 const io = new Server(server, {
-    cors: {
-        origin: "https://realtimechatbydharaneeshoffl.netlify.app/",
-        methods: ["GET", "POST"],
-    },
-})
-
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
 let users = [];
 
 io.on("connection", (socket) => {
-    console.log("User Connected");
-    socket.on("join", (username) => {
-        if (!users.some((user) => user.id === socket.id)) {
-            users.push({id:socket.id,username})
-        }
+  console.log("CONNECTED:", socket.id);
 
-        io.emit('users', users.map(user => user.username))
-        
-        io.emit("message", {
-            username: "System",
-            message:`${username} has joined the chat.`
-        })
-    })
+  socket.on("join", (username) => {
+    console.log("JOIN:", username);
 
+    users.push({ id: socket.id, username });
 
-     socket.on("sendMessage", (data) => {
-       io.emit("message", data);
-     });
+    io.emit("users", users.map(u => u.username));
 
-     socket.on("disconnect", () => {
-       const user = users.find((user) => user.id === socket.id);
-       if (user) {
-         users = users.filter((u) => u.id !== socket.id);
-         io.emit(
-           "users",
-           users.map((user) => user.username)
-         );
-         io.emit("message", {
-           username: "System",
-           message: `${user.username} has left the chat.`,
-         });
-       }
-     });
+    io.emit("message", {
+      username: "System",
+      message: `${username} joined the chat.`,
+    });
 
+    socket.on("sendMessage", (data) => {
+      io.emit("message", data);
+    });
 
-})
-    
+    socket.on("disconnect", () => {
+      users = users.filter(u => u.id !== socket.id);
 
-server.listen(5000, () => {
-    console.log("Server is running on port 5000");
-})
+      io.emit("users", users.map(u => u.username));
+
+      io.emit("message", {
+        username: "System",
+        message: `${username} left the chat.`,
+      });
+
+      console.log("DISCONNECTED:", socket.id);
+    });
+  });
+});
+
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log("Server listening on", PORT);
+});
